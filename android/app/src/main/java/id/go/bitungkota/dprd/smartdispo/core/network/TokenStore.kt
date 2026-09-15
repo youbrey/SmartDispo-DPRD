@@ -1,7 +1,6 @@
 package id.go.bitungkota.dprd.smartdispo.core.network
 
 import android.content.Context
-import androidx.datastore.preferences.core.clear
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
