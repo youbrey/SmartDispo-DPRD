@@ -1,0 +1,16 @@
+.env
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.pyc
+.idea/
+.gradle/
+**/build/
+local.properties
+node_modules/
+dist/
+*.tsbuildinfo
+coverage/
+*.jks
+*.keystore
