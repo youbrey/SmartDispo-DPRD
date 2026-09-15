@@ -167,6 +167,14 @@ class TravelRequestMember(UUIDPrimaryKeyMixin, Base):
     sort_order: Mapped[int] = mapped_column(Integer)
 
 
+class MeetingType(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "meeting_types"
+    code: Mapped[str] = mapped_column(String(80), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(255))
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+
+
 class MeetingRequest(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "meeting_requests"
     document_id: Mapped[UUID] = mapped_column(ForeignKey("documents.id", ondelete="CASCADE"), unique=True)

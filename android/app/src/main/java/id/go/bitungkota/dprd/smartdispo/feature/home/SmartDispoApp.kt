@@ -18,6 +18,7 @@ import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.TaskAlt
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -32,6 +33,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -42,6 +44,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import id.go.bitungkota.dprd.smartdispo.feature.auth.AuthViewModel
 import id.go.bitungkota.dprd.smartdispo.feature.auth.LoginScreen
+import id.go.bitungkota.dprd.smartdispo.feature.meeting.MeetingRequestScreen
 
 private data class NavItem(val label: String, val icon: ImageVector)
 
@@ -60,6 +63,7 @@ fun SmartDispoApp(authViewModel: AuthViewModel = hiltViewModel()) {
 private fun MainScaffold(homeViewModel: HomeViewModel = hiltViewModel()) {
     val state by homeViewModel.state.collectAsStateWithLifecycle()
     var selected by remember { mutableIntStateOf(0) }
+    var creatingMeeting by remember { mutableStateOf(false) }
     val items = listOf(
         NavItem("Home", Icons.Outlined.Home),
         NavItem("Tugas", Icons.Outlined.TaskAlt),
@@ -68,6 +72,13 @@ private fun MainScaffold(homeViewModel: HomeViewModel = hiltViewModel()) {
         NavItem("Profil", Icons.Outlined.Person),
     )
     LaunchedEffect(Unit) { homeViewModel.refresh() }
+    if (creatingMeeting) {
+        MeetingRequestScreen(onBack = {
+            creatingMeeting = false
+            homeViewModel.refresh()
+        })
+        return
+    }
     Scaffold(
         topBar = { TopAppBar(title = { Text("SmartDispo DPRD") }) },
         bottomBar = {
@@ -90,7 +101,7 @@ private fun MainScaffold(homeViewModel: HomeViewModel = hiltViewModel()) {
         },
     ) { padding ->
         when (selected) {
-            0 -> Dashboard(state, Modifier.padding(padding))
+            0 -> Dashboard(state, Modifier.padding(padding), onCreateMeeting = { creatingMeeting = true })
             1 -> TaskList(state, Modifier.padding(padding))
             else -> ModulePlaceholder(items[selected].label, Modifier.padding(padding))
         }
@@ -98,18 +109,30 @@ private fun MainScaffold(homeViewModel: HomeViewModel = hiltViewModel()) {
 }
 
 @Composable
-private fun Dashboard(state: HomeUiState, modifier: Modifier = Modifier) {
+private fun Dashboard(
+    state: HomeUiState,
+    modifier: Modifier = Modifier,
+    onCreateMeeting: () -> Unit,
+) {
     LazyColumn(
         modifier = modifier.fillMaxSize().padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         item {
             Text("Selamat datang", style = androidx.compose.material3.MaterialTheme.typography.headlineSmall)
+            if (state.fullName.isNotBlank()) Text(state.fullName)
             Text("Tugas dan dokumen terbaru Anda")
             Spacer(Modifier.height(16.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 MetricCard("Menunggu", state.tasks.size.toString(), Modifier.weight(1f))
                 MetricCard("Urgent", "0", Modifier.weight(1f))
+            }
+        }
+        if ("meeting_request.create" in state.permissions) {
+            item {
+                Button(onClick = onCreateMeeting, modifier = Modifier.fillMaxWidth()) {
+                    Text("Buat Permintaan Rapat")
+                }
             }
         }
         item { Text("Tugas terbaru", style = androidx.compose.material3.MaterialTheme.typography.titleLarge) }

@@ -14,6 +14,8 @@ import javax.inject.Inject
 data class HomeUiState(
     val loading: Boolean = false,
     val tasks: List<WorkflowTask> = emptyList(),
+    val fullName: String = "",
+    val permissions: Set<String> = emptySet(),
     val error: String? = null,
 )
 
@@ -24,8 +26,14 @@ class HomeViewModel @Inject constructor(private val api: SmartDispoApi) : ViewMo
 
     fun refresh() = viewModelScope.launch {
         _state.value = _state.value.copy(loading = true, error = null)
-        runCatching { api.myTasks() }
-            .onSuccess { _state.value = HomeUiState(tasks = it) }
+        runCatching { api.me() to api.myTasks() }
+            .onSuccess { (profile, tasks) ->
+                _state.value = HomeUiState(
+                    tasks = tasks,
+                    fullName = profile.fullName,
+                    permissions = profile.permissions.toSet(),
+                )
+            }
             .onFailure { _state.value = HomeUiState(error = "Tugas belum dapat dimuat") }
     }
 }

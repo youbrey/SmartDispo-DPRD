@@ -1,6 +1,9 @@
 package id.go.bitungkota.dprd.smartdispo.core.network
 
 import id.go.bitungkota.dprd.smartdispo.core.model.TaskActionRequest
+import id.go.bitungkota.dprd.smartdispo.core.model.MeetingRequestCreate
+import id.go.bitungkota.dprd.smartdispo.core.model.MeetingRequestResponse
+import id.go.bitungkota.dprd.smartdispo.core.model.MeetingType
 import id.go.bitungkota.dprd.smartdispo.core.model.TokenPair
 import id.go.bitungkota.dprd.smartdispo.core.model.UserProfile
 import id.go.bitungkota.dprd.smartdispo.core.model.WorkflowTask
@@ -21,6 +24,12 @@ interface SmartDispoApi {
 
     @GET("tasks/mine")
     suspend fun myTasks(): List<WorkflowTask>
+
+    @GET("meeting-types")
+    suspend fun meetingTypes(): List<MeetingType>
+
+    @POST("meeting-requests")
+    suspend fun createMeetingRequest(@Body request: MeetingRequestCreate): MeetingRequestResponse
 
     @POST("tasks/{taskId}/actions")
     suspend fun executeTask(@Path("taskId") taskId: String, @Body request: TaskActionRequest)

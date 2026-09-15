@@ -37,15 +37,23 @@ async def get_current_user(session: SessionDep, token: Annotated[str, Depends(oa
 CurrentUser = Annotated[User, Depends(get_current_user)]
 
 
+async def permissions_for_user(session: AsyncSession, user_id: UUID) -> set[str]:
+    query = (
+        select(Permission.code)
+        .join(RolePermission, RolePermission.permission_id == Permission.id)
+        .join(UserRole, UserRole.role_id == RolePermission.role_id)
+        .where(UserRole.user_id == user_id)
+    )
+    return set((await session.execute(query)).scalars())
+
+
+async def has_permission(session: AsyncSession, user_id: UUID, permission_code: str) -> bool:
+    return permission_code in await permissions_for_user(session, user_id)
+
+
 def require_permission(permission_code: str):
     async def checker(session: SessionDep, user: CurrentUser) -> User:
-        query = (
-            select(Permission.id)
-            .join(RolePermission, RolePermission.permission_id == Permission.id)
-            .join(UserRole, UserRole.role_id == RolePermission.role_id)
-            .where(UserRole.user_id == user.id, Permission.code == permission_code)
-        )
-        if (await session.execute(query)).scalar_one_or_none() is None:
+        if not await has_permission(session, user.id, permission_code):
             raise HTTPException(status_code=403, detail="Izin tidak mencukupi")
         return user
 

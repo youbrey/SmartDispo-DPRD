@@ -16,7 +16,7 @@ def canonical_hash(content: dict) -> str:
     return sha256(serialized.encode()).hexdigest()
 
 
-async def create_document(session: AsyncSession, payload: DocumentCreate, user_id: UUID) -> Document:
+async def add_document(session: AsyncSession, payload: DocumentCreate, user_id: UUID) -> Document:
     try:
         document_type = DocumentType(payload.document_type)
     except ValueError as exc:
@@ -47,12 +47,24 @@ async def create_document(session: AsyncSession, payload: DocumentCreate, user_i
         entity_id=document.id,
         after={"version": 1, "type": document_type.value, "title": payload.title},
     )
+    return document
+
+
+async def create_document(session: AsyncSession, payload: DocumentCreate, user_id: UUID) -> Document:
+    document = await add_document(session, payload, user_id)
     await session.commit()
     await session.refresh(document)
     return document
 
 
-async def update_document(session: AsyncSession, document_id: UUID, payload: DocumentUpdate, user_id: UUID) -> Document:
+async def update_document(
+    session: AsyncSession,
+    document_id: UUID,
+    payload: DocumentUpdate,
+    user_id: UUID,
+    *,
+    commit: bool = True,
+) -> Document:
     document = (
         await session.execute(select(Document).where(Document.id == document_id).with_for_update())
     ).scalar_one_or_none()
@@ -86,6 +98,7 @@ async def update_document(session: AsyncSession, document_id: UUID, payload: Doc
         before=before,
         after={"version": document.current_version, "title": document.title},
     )
-    await session.commit()
-    await session.refresh(document)
+    if commit:
+        await session.commit()
+        await session.refresh(document)
     return document

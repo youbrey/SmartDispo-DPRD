@@ -6,7 +6,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 
 from app.core.config import get_settings
-from app.core.dependencies import CurrentUser, SessionDep
+from app.core.dependencies import CurrentUser, SessionDep, permissions_for_user
 from app.core.security import create_token, decode_token, token_digest, verify_password
 from app.models.entities import RefreshToken, User
 from app.schemas.common import RefreshRequest, TokenPair
@@ -70,5 +70,6 @@ async def refresh_tokens(payload: RefreshRequest, session: SessionDep) -> TokenP
 
 
 @router.get("/me")
-async def me(user: CurrentUser) -> dict:
-    return {"id": str(user.id), "username": user.username, "full_name": user.full_name}
+async def me(user: CurrentUser, session: SessionDep) -> dict:
+    permissions = sorted(await permissions_for_user(session, user.id))
+    return {"id": str(user.id), "username": user.username, "full_name": user.full_name, "permissions": permissions}

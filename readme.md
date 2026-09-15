@@ -11,6 +11,12 @@ Pusat workflow persuratan digital Sekretariat DPRD Kota Bitung. Repository ini b
 - Versioning dokumen, SHA-256, dan audit log append-only
 - Notifikasi, perangkat, chat, serta integrasi SIPS Terpadu
 
+## Implementasi saat ini
+
+Versi `0.2.0` menyediakan fondasi workflow dan vertical slice Permintaan Rapat: master jenis rapat,
+API draft/versioning, permission server-side, serta formulir Android dengan undangan dinamis maksimal 20 tujuan.
+Lihat `docs/IMPLEMENTATION_STATUS.md` untuk batas fitur dan tahap berikutnya.
+
 ## Menjalankan backend
 
 ```bash
