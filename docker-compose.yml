@@ -30,5 +30,12 @@ services:
     volumes:
       - ./templates:/app/templates:ro
 
+  admin-web:
+    build: ./admin-web
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+
 volumes:
   postgres_data:

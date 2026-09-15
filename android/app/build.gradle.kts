@@ -7,6 +7,15 @@ plugins {
     id("com.google.dagger.hilt.android")
 }
 
+val releaseApiBaseUrl = providers.gradleProperty("SMARTDISPO_API_BASE_URL")
+    .orElse("https://smartdispo.example.go.id/api/v1/")
+    .get()
+val debugApiBaseUrl = providers.gradleProperty("SMARTDISPO_DEBUG_API_BASE_URL")
+    .orElse("http://10.0.2.2:8000/api/v1/")
+    .get()
+require(releaseApiBaseUrl.endsWith('/')) { "SMARTDISPO_API_BASE_URL wajib diakhiri /" }
+require(debugApiBaseUrl.endsWith('/')) { "SMARTDISPO_DEBUG_API_BASE_URL wajib diakhiri /" }
+
 android {
     namespace = "id.go.bitungkota.dprd.smartdispo"
     compileSdk = 35
@@ -15,16 +24,16 @@ android {
         applicationId = "id.go.bitungkota.dprd.smartdispo"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 3
+        versionName = "0.3.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
-        buildConfigField("String", "API_BASE_URL", "\"https://smartdispo.example.go.id/api/v1/\"")
+        buildConfigField("String", "API_BASE_URL", "\"$releaseApiBaseUrl\"")
     }
 
     buildTypes {
         debug {
-            buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:8000/api/v1/\"")
+            buildConfigField("String", "API_BASE_URL", "\"$debugApiBaseUrl\"")
         }
         release {
             isMinifyEnabled = true

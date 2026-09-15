@@ -15,7 +15,7 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(
     title="SmartDispo DPRD Kota Bitung API",
-    version="0.2.0",
+    version="0.3.0",
     lifespan=lifespan,
     docs_url="/docs" if get_settings().env != "production" else None,
 )

@@ -30,3 +30,10 @@
 - Permission khusus `meeting_request.create` dan `meeting_request.edit`.
 - Profil API mengirim permission efektif agar menu Android mengikuti hak akses Administrator.
 - Form Android Permintaan Rapat dengan daftar undangan dinamis dan penyimpanan draft.
+
+## Tersedia pada tahap 0.3.0
+
+- Startup container menjalankan migration dan bootstrap/update permission Administrator secara idempotent.
+- CI integration memakai PostgreSQL nyata dan menguji login sampai dokumen rapat berstatus `COMPLETED`.
+- Panel Admin memakai login dan statistik dokumen nyata dari API; tidak lagi menampilkan data contoh.
+- Endpoint API Android dapat dikonfigurasi lewat Gradle property untuk emulator, HP fisik, staging, dan produksi.
