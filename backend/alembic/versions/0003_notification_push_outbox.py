@@ -15,10 +15,30 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column("notifications", sa.Column("push_sent_at", sa.DateTime(timezone=True), nullable=True))
-    op.create_index("ix_notifications_push_sent_at", "notifications", ["push_sent_at"])
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    column_names = {column["name"] for column in inspector.get_columns("notifications")}
+    if "push_sent_at" not in column_names:
+        op.add_column(
+            "notifications",
+            sa.Column("push_sent_at", sa.DateTime(timezone=True), nullable=True),
+        )
+
+    # Recreate the inspector after DDL because PostgreSQL inspector results are cached.
+    inspector = sa.inspect(bind)
+    index_names = {index["name"] for index in inspector.get_indexes("notifications")}
+    if "ix_notifications_push_sent_at" not in index_names:
+        op.create_index("ix_notifications_push_sent_at", "notifications", ["push_sent_at"])
 
 
 def downgrade() -> None:
-    op.drop_index("ix_notifications_push_sent_at", table_name="notifications")
-    op.drop_column("notifications", "push_sent_at")
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    index_names = {index["name"] for index in inspector.get_indexes("notifications")}
+    if "ix_notifications_push_sent_at" in index_names:
+        op.drop_index("ix_notifications_push_sent_at", table_name="notifications")
+
+    inspector = sa.inspect(bind)
+    column_names = {column["name"] for column in inspector.get_columns("notifications")}
+    if "push_sent_at" in column_names:
+        op.drop_column("notifications", "push_sent_at")
