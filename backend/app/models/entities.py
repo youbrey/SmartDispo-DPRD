@@ -303,6 +303,7 @@ class Notification(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     body: Mapped[str] = mapped_column(Text)
     payload: Mapped[dict] = mapped_column(JSONB, default=dict)
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    push_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
 
 
 class UserDevice(UUIDPrimaryKeyMixin, TimestampMixin, Base):

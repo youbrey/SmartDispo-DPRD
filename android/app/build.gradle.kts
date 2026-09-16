@@ -7,6 +7,10 @@ plugins {
     id("com.google.dagger.hilt.android")
 }
 
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 val releaseApiBaseUrl = providers.gradleProperty("SMARTDISPO_API_BASE_URL")
     .orElse("https://smartdispo.example.go.id/api/v1/")
     .get()
@@ -24,8 +28,8 @@ android {
         applicationId = "id.go.bitungkota.dprd.smartdispo"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.3.0"
+        versionCode = 4
+        versionName = "0.4.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
         buildConfigField("String", "API_BASE_URL", "\"$releaseApiBaseUrl\"")
@@ -83,6 +87,8 @@ dependencies {
     implementation("androidx.room:room-ktx:2.6.1")
     ksp("androidx.room:room-compiler:2.6.1")
     implementation("androidx.work:work-runtime-ktx:2.10.0")
+    implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
+    implementation("com.google.firebase:firebase-messaging")
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")

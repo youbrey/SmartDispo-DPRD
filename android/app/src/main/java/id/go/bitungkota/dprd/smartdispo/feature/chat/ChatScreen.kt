@@ -26,6 +26,7 @@ fun ChatScreen(viewModel: ChatViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     Column(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("Live Chat", style = MaterialTheme.typography.headlineSmall)
+        Text(if (state.realtimeConnected) "Realtime tersambung" else "Mode sinkronisasi berkala")
         LazyColumn(horizontalAlignment = androidx.compose.ui.Alignment.Start, modifier = Modifier.weight(1f)) {
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

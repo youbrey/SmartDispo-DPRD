@@ -10,6 +10,8 @@ import id.go.bitungkota.dprd.smartdispo.core.model.RefreshRequest
 import id.go.bitungkota.dprd.smartdispo.core.network.SmartDispoApi
 import id.go.bitungkota.dprd.smartdispo.core.network.TokenStore
 import id.go.bitungkota.dprd.smartdispo.core.security.deviceFingerprint
+import id.go.bitungkota.dprd.smartdispo.core.notifications.FcmTokenProvider
+import id.go.bitungkota.dprd.smartdispo.core.database.OfflineCache
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -23,6 +25,8 @@ data class AuthUiState(val loading: Boolean = false, val authenticated: Boolean 
 class AuthViewModel @Inject constructor(
     private val api: SmartDispoApi,
     private val tokenStore: TokenStore,
+    private val fcmTokenProvider: FcmTokenProvider,
+    private val cache: OfflineCache,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
     private val _state = MutableStateFlow(AuthUiState())
@@ -46,7 +50,9 @@ class AuthViewModel @Inject constructor(
             .onSuccess {
                 tokenStore.save(it.accessToken, it.refreshToken)
                 runCatching {
-                    api.registerDevice(DeviceRegistration(deviceFingerprint(context)))
+                    api.registerDevice(
+                        DeviceRegistration(deviceFingerprint(context), fcmTokenProvider.tokenOrNull())
+                    )
                 }
                 _state.value = AuthUiState(authenticated = true)
             }
@@ -57,5 +63,6 @@ class AuthViewModel @Inject constructor(
         val refresh = tokenStore.refreshToken.first()
         if (refresh != null) runCatching { api.logout(RefreshRequest(refresh)) }
         tokenStore.clear()
+        cache.clear()
     }
 }

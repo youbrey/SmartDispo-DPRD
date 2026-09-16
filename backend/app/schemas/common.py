@@ -231,6 +231,13 @@ class DispositionTargetInput(ApiModel):
         return self
 
 
+class DispositionTargetOption(ApiModel):
+    target_type: str
+    target_id: UUID
+    label: str
+    subtitle: str | None = None
+
+
 class DispositionCreate(ApiModel):
     actor_role: str = Field(min_length=2, max_length=80)
     directives: list[str] = Field(min_length=1, max_length=30)

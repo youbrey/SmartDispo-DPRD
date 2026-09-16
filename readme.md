@@ -13,9 +13,10 @@ Pusat workflow persuratan digital Sekretariat DPRD Kota Bitung. Repository ini b
 
 ## Implementasi saat ini
 
-Versi `0.3.0` menyediakan fondasi workflow dan vertical slice Permintaan Rapat: master jenis rapat,
-API draft/versioning, permission server-side, serta formulir Android dengan undangan dinamis maksimal 20 tujuan.
-Lihat `docs/IMPLEMENTATION_STATUS.md` untuk batas fitur dan tahap berikutnya.
+Versi `0.4.0` menyediakan alur operasional Permintaan Rapat, Permintaan Perjalanan Dinas, Surat Masuk
+DPRD/Setwan, lembar disposisi dinamis, workflow administratif, generator DOCX/PDF, panel administrator,
+live chat WebSocket, push notification FCM, cache baca offline Room, RBAC, audit trail, dan integrasi SIPS.
+Lihat `docs/IMPLEMENTATION_STATUS.md` untuk hasil verifikasi dan konfigurasi produksi yang masih diperlukan.
 
 ## Menjalankan backend
 
@@ -50,6 +51,13 @@ pytest
 ```
 
 Android dibuka dari folder `android/`. Panel administrator dibuka dari folder `admin-web/`. Build dan pengujian otomatis dijalankan oleh GitHub Actions pada setiap push dan pull request.
+
+## Firebase
+
+Push notification aktif bila server memperoleh `SMARTDISPO_FIREBASE_PROJECT_ID` dan lokasi service-account
+melalui `SMARTDISPO_FIREBASE_SERVICE_ACCOUNT_FILE`. File `android/app/google-services.json` harus dipasang
+oleh administrator pada saat build dan sengaja diabaikan Git. Tanpa konfigurasi Firebase, aplikasi tetap
+berfungsi dengan Notification Center dan live chat WebSocket, tetapi push di luar aplikasi tidak dikirim.
 
 ## Keamanan
 

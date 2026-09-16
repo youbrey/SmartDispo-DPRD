@@ -193,6 +193,12 @@ private fun Dashboard(
             Text("Selamat datang", style = androidx.compose.material3.MaterialTheme.typography.headlineSmall)
             if (state.fullName.isNotBlank()) Text(state.fullName)
             Text("Tugas dan dokumen terbaru Anda")
+            if (!state.online) {
+                Text(
+                    "Offline · data tersimpan hanya dapat dibaca; tindakan workflow dinonaktifkan.",
+                    color = androidx.compose.material3.MaterialTheme.colorScheme.error,
+                )
+            }
             Spacer(Modifier.height(16.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 MetricCard("Menunggu", state.tasks.size.toString(), Modifier.weight(1f))
@@ -217,7 +223,9 @@ private fun Dashboard(
         if (state.loading) item { CircularProgressIndicator() }
         state.error?.let { message -> item { Text(message) } }
         state.message?.let { message -> item { Text(message, color = androidx.compose.material3.MaterialTheme.colorScheme.primary) } }
-        items(state.tasks.take(5), key = { it.id }) { TaskCard(it, state.actingTaskId == it.id, homeViewModelAction = null) }
+        items(state.tasks.take(5), key = { it.id }) {
+            TaskCard(it, state.actingTaskId == it.id, state.online, homeViewModelAction = null)
+        }
         if (!state.loading && state.tasks.isEmpty()) item { Text("Tidak ada tugas aktif.") }
     }
 }
@@ -244,7 +252,7 @@ private fun TaskList(
         state.message?.let { message -> item { Text(message, color = androidx.compose.material3.MaterialTheme.colorScheme.primary) } }
         state.error?.let { message -> item { Text(message, color = androidx.compose.material3.MaterialTheme.colorScheme.error) } }
         items(state.tasks, key = { it.id }) { task ->
-            TaskCard(task, state.actingTaskId == task.id, execute, onOpenDocument)
+            TaskCard(task, state.actingTaskId == task.id, state.online, execute, onOpenDocument)
         }
     }
 }
@@ -253,6 +261,7 @@ private fun TaskList(
 private fun TaskCard(
     task: WorkflowTask,
     busy: Boolean,
+    online: Boolean,
     homeViewModelAction: ((WorkflowTask, String, String?) -> Unit)?,
     onOpenDocument: ((WorkflowTask) -> Unit)? = null,
 ) {
@@ -275,9 +284,9 @@ private fun TaskCard(
                         rowActions.forEach { action ->
                             val destructive = action in setOf("RETURN", "REJECT")
                             if (destructive) {
-                                OutlinedButton(onClick = { pendingAction = action }, enabled = !busy) { Text(actionLabel(action)) }
+                                OutlinedButton(onClick = { pendingAction = action }, enabled = !busy && online) { Text(actionLabel(action)) }
                             } else {
-                                Button(onClick = { pendingAction = action }, enabled = !busy) { Text(actionLabel(action)) }
+                                Button(onClick = { pendingAction = action }, enabled = !busy && online) { Text(actionLabel(action)) }
                             }
                         }
                     }

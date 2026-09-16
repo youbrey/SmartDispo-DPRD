@@ -1,13 +1,17 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+import jwt
+from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from app.core.dependencies import CurrentUser, SessionDep, require_permission
+from app.core.security import decode_token
+from app.db.session import SessionLocal
 from app.models.entities import ChatMember, ChatMessage, ChatRoom, Notification, User, UserDevice
 from app.services.audit import record_audit
+from app.services.realtime import realtime_hub
 
 router = APIRouter(tags=["communications"])
 
@@ -246,4 +250,48 @@ async def create_chat_message(
         )
     await session.commit()
     await session.refresh(message)
-    return {"id": str(message.id), "body": message.body, "created_at": message.created_at}
+    result = {
+        "id": str(message.id),
+        "sender_id": str(user.id),
+        "sender_name": user.full_name,
+        "body": message.body,
+        "created_at": message.created_at.isoformat(),
+    }
+    await realtime_hub.broadcast(room_id, {"event": "NEW_CHAT_MESSAGE", "message": result})
+    return result
+
+
+@router.websocket("/chat/rooms/{room_id}/ws")
+async def chat_websocket(websocket: WebSocket, room_id: UUID, access_token: str) -> None:
+    try:
+        claims = decode_token(access_token)
+        if claims.get("type") != "access":
+            raise ValueError("wrong token type")
+        user_id = UUID(claims["sub"])
+    except (jwt.InvalidTokenError, KeyError, ValueError):
+        await websocket.close(code=4401, reason="Kredensial tidak valid")
+        return
+    async with SessionLocal() as session:
+        user = await session.get(User, user_id)
+        membership = (
+            await session.execute(
+                select(ChatMember.id).where(ChatMember.room_id == room_id, ChatMember.user_id == user_id)
+            )
+        ).scalar_one_or_none()
+        if not user or not user.active or claims.get("ver") != user.token_version:
+            await websocket.close(code=4401, reason="Akun tidak aktif")
+            return
+        if not membership:
+            await websocket.close(code=4403, reason="Bukan anggota ruang")
+            return
+        await realtime_hub.connect(room_id, websocket)
+        try:
+            await websocket.send_json({"event": "CONNECTED", "room_id": str(room_id)})
+            while True:
+                message = await websocket.receive_json()
+                if message.get("event") == "PING":
+                    await websocket.send_json({"event": "PONG"})
+        except WebSocketDisconnect:
+            pass
+        finally:
+            await realtime_hub.disconnect(room_id, websocket)

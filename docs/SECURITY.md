@@ -11,6 +11,8 @@
 - Lampiran wajib divalidasi berdasarkan MIME, signature, ukuran, serta hasil antivirus sebelum disimpan.
 - Audit log dilindungi trigger PostgreSQL dari UPDATE dan DELETE.
 - Signing key Android hanya disimpan sebagai GitHub Actions secret, tidak di repository.
+- Rate limiting memakai Redis untuk login dan API umum; fallback memori menjaga proteksi dasar bila Redis terputus.
+- Kredensial Firebase dibaca dari file service-account yang dipasang sebagai secret server dan tidak pernah disimpan di repository.
 
 ## Sebelum produksi
 

@@ -44,13 +44,6 @@ services:
     depends_on:
       - api
 
-  admin-web:
-    build: ./admin-web
-    ports:
-      - "8080:80"
-    depends_on:
-      - api
-
 volumes:
   postgres_data:
   generated_documents:

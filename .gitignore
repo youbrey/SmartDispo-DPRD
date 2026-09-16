@@ -1,5 +1,6 @@
 .env
 .venv/
+backend/.venv-runtime/
 .venv-test/
 __pycache__/
 .pytest_cache/
@@ -16,4 +17,5 @@ coverage/
 backend/generated/
 backend/storage/
 *.jks
+android/app/google-services.json
 *.keystore

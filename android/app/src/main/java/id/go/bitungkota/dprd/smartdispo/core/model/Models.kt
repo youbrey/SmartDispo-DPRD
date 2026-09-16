@@ -237,6 +237,14 @@ data class DispositionTarget(
 )
 
 @Serializable
+data class DispositionTargetOption(
+    @SerialName("target_type") val targetType: String,
+    @SerialName("target_id") val targetId: String,
+    val label: String,
+    val subtitle: String? = null,
+)
+
+@Serializable
 data class DispositionResponse(
     val id: String,
     @SerialName("document_id") val documentId: String,
@@ -275,6 +283,13 @@ data class ChatMessage(
 
 @Serializable
 data class ChatMessageCreate(val body: String)
+
+@Serializable
+data class RealtimeChatEnvelope(
+    val event: String,
+    val message: ChatMessage? = null,
+    @SerialName("room_id") val roomId: String? = null,
+)
 
 @Serializable
 data class RegisteredDevice(

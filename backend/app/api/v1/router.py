@@ -5,6 +5,7 @@ from app.api.v1 import (
     attachments,
     auth,
     communications,
+    directory,
     dispositions,
     documents,
     incoming_letters,
@@ -25,4 +26,5 @@ router.include_router(tasks.router)
 router.include_router(admin.router)
 router.include_router(attachments.router)
 router.include_router(communications.router)
+router.include_router(directory.router)
 router.include_router(sips.router)

@@ -8,6 +8,7 @@ import id.go.bitungkota.dprd.smartdispo.core.model.MeetingType
 import id.go.bitungkota.dprd.smartdispo.core.model.DocumentSummary
 import id.go.bitungkota.dprd.smartdispo.core.model.DispositionCreate
 import id.go.bitungkota.dprd.smartdispo.core.model.DispositionResponse
+import id.go.bitungkota.dprd.smartdispo.core.model.DispositionTargetOption
 import id.go.bitungkota.dprd.smartdispo.core.model.IncomingLetterCreate
 import id.go.bitungkota.dprd.smartdispo.core.model.IncomingLetterResponse
 import id.go.bitungkota.dprd.smartdispo.core.model.TokenPair
@@ -120,6 +121,9 @@ interface SmartDispoApi {
         @Path("documentId") documentId: String,
         @Body request: DispositionCreate,
     ): DispositionResponse
+
+    @GET("directory/disposition-targets")
+    suspend fun dispositionTargets(): List<DispositionTargetOption>
 
     @POST("tasks/{taskId}/actions")
     suspend fun executeTask(@Path("taskId") taskId: String, @Body request: TaskActionRequest)

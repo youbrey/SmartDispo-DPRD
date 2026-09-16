@@ -7,17 +7,22 @@ from uuid import UUID
 from docx import Document as WordDocument
 from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT, WD_TABLE_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.oxml import OxmlElement
 from docx.shared import Inches, Pt
+from docx.text.paragraph import Paragraph
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.models.entities import (
+    Disposition,
     DispositionSheet,
+    DispositionTarget,
     Document,
     DocumentTemplateVersion,
     DocumentVersion,
+    OrganizationalUnit,
     Role,
     RoleAssignment,
     User,
@@ -71,6 +76,14 @@ def _set_paragraph(paragraph, value: str, size: float | None = None) -> None:
     if size is not None:
         for run in paragraph.runs:
             run.font.size = Pt(size)
+
+
+def _insert_paragraph_after(paragraph: Paragraph, value: str) -> Paragraph:
+    element = OxmlElement("w:p")
+    paragraph._p.addnext(element)
+    created = Paragraph(element, paragraph._parent)
+    _set_paragraph(created, value)
+    return created
 
 
 def _number_word(value: int) -> str:
@@ -133,6 +146,7 @@ def _rebuild_setwan_sheet(
     directives: set[str],
     notes: list[str],
     officeholders: dict,
+    target_labels: list[str],
 ) -> None:
     old_table = word.tables[0]
     old_table._element.getparent().remove(old_table._element)
@@ -168,11 +182,10 @@ def _rebuild_setwan_sheet(
     coordination = table.cell(5, 0).merge(table.cell(5, 1))
     _set_paragraph(coordination.paragraphs[0], "Paraf Koordinasi : Kabag Umum & Keuangan\n\n")
 
-    targets = (
-        "Diteruskan Kepada :\n"
-        "☐ Kepala Bagian Umum & Keuangan\n"
-        "☐ Kepala Bagian Perundang-Undangan, Persidangan dan Humas\n"
-        "☐ Kepala Bagian Fasilitasi Penganggaran dan Pengawasan"
+    targets = "Diteruskan Kepada :\n" + (
+        "\n".join(f"☒ {label}" for label in target_labels)
+        if target_labels
+        else "☐ Belum ada tujuan disposisi"
     )
     setwan_labels = {
         "FURTHER_PROCESS": "Proses Lebih Lanjut",
@@ -348,7 +361,14 @@ def _fill_disposition(word: WordDocument, content: dict, kind: str) -> None:
     notes = [entry.get("note") for entry in (content.get("dispositions") or {}).values() if entry.get("note")]
     officeholders = content.get("officeholders") or {}
     if kind == "INCOMING_SECRETARY":
-        _rebuild_setwan_sheet(word, content, directives, notes, officeholders)
+        _rebuild_setwan_sheet(
+            word,
+            content,
+            directives,
+            notes,
+            officeholders,
+            (content.get("disposition_target_labels_by_actor") or {}).get("SEKWAN", []),
+        )
     else:
         table = word.tables[0]
         table.rows[0].cells[0].text = f"SURAT DARI : {content['sender']}"
@@ -427,6 +447,19 @@ def _fill_disposition(word: WordDocument, content: dict, kind: str) -> None:
                 if code:
                     selected = code in directives or (code == "CREATE_SPT" and "CREATE_SPD" in directives)
                     _set_cell(choices, row, column, f"{'☒' if selected else '☐'} {labels[code]}")
+        sekwan_targets = (content.get("disposition_target_labels_by_actor") or {}).get("SEKWAN", [])
+        target_paragraphs = [
+            paragraph
+            for paragraph in word.paragraphs
+            if paragraph.text.strip().upper().startswith("KABAG ")
+        ]
+        for index, paragraph in enumerate(target_paragraphs):
+            label = sekwan_targets[index] if index < len(sekwan_targets) else ""
+            _set_paragraph(paragraph, f"☒ {label}" if label else "")
+        anchor = target_paragraphs[-1] if target_paragraphs else None
+        for label in sekwan_targets[len(target_paragraphs) :]:
+            if anchor:
+                anchor = _insert_paragraph_after(anchor, f"☒ {label}")
 
 
 def render_docx(
@@ -508,5 +541,29 @@ async def generate_document(session: AsyncSession, document_id: UUID, pdf: bool 
             code: {"full_name": full_name, "metadata": metadata or {}}
             for code, full_name, metadata in officeholder_rows
         }
+        target_rows = (
+            await session.execute(
+                select(
+                    Disposition.actor_role,
+                    OrganizationalUnit.name,
+                    Role.name,
+                    User.full_name,
+                )
+                .select_from(DispositionTarget)
+                .join(Disposition, Disposition.id == DispositionTarget.disposition_id)
+                .join(DispositionSheet, DispositionSheet.id == Disposition.sheet_id)
+                .outerjoin(OrganizationalUnit, OrganizationalUnit.id == DispositionTarget.unit_id)
+                .outerjoin(Role, Role.id == DispositionTarget.role_id)
+                .outerjoin(User, User.id == DispositionTarget.user_id)
+                .where(DispositionSheet.document_id == document.id)
+                .order_by(Disposition.created_at, DispositionTarget.id)
+            )
+        ).all()
+        labels_by_actor: dict[str, list[str]] = {}
+        for actor_role, unit_name, role_name, user_name in target_rows:
+            label = unit_name or role_name or user_name
+            if label and label not in labels_by_actor.setdefault(actor_role, []):
+                labels_by_actor[actor_role].append(label)
+        content["disposition_target_labels_by_actor"] = labels_by_actor
     docx = render_docx(document, content, template_version)
     return convert_pdf(docx) if pdf else docx

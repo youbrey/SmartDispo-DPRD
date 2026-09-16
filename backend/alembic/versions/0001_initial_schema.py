@@ -1,7 +1,6 @@
 """Initial SmartDispo schema."""
 
 from alembic import op
-
 from app.db.base import Base
 from app.models import entities  # noqa: F401
 

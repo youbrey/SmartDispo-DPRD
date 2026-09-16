@@ -211,6 +211,36 @@ private fun DispositionForm(state: LettersUiState, viewModel: LettersViewModel) 
                 modifier = Modifier.fillMaxWidth(),
             )
         }
+        item {
+            Text("Tujuan Disposisi", style = MaterialTheme.typography.titleMedium)
+            Text("Pilih unit/AKD, role, atau pengguna yang akan menerima tindak lanjut.")
+            OutlinedTextField(
+                value = state.targetQuery,
+                onValueChange = { value -> viewModel.update { it.copy(targetQuery = value) } },
+                label = { Text("Cari tujuan") },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            if (state.loadingTargets) Text("Memuat tujuan...")
+        }
+        val visibleTargets = state.dispositionTargets.filter { option ->
+            state.targetQuery.isBlank() ||
+                option.label.contains(state.targetQuery, ignoreCase = true) ||
+                option.subtitle.orEmpty().contains(state.targetQuery, ignoreCase = true)
+        }
+        items(visibleTargets, key = { "${it.targetType}:${it.targetId}" }) { option ->
+            val key = "${option.targetType}:${option.targetId}"
+            FilterChip(
+                selected = key in state.selectedTargetKeys,
+                onClick = { viewModel.toggleTarget(option) },
+                label = {
+                    Column {
+                        Text(option.label)
+                        option.subtitle?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
         item { Area(state.dispositionNote, "Catatan disposisi") { viewModel.update { s -> s.copy(dispositionNote = it) } } }
         state.error?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
         state.success?.let { item { Text(it, color = MaterialTheme.colorScheme.primary) } }

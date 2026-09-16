@@ -151,7 +151,11 @@ async def create_disposition(
         )
     sheet.structured_data = {
         **sheet.structured_data,
-        actor_role: {"directives": payload.directives, "note": payload.note},
+        actor_role: {
+            "directives": payload.directives,
+            "note": payload.note,
+            "targets": [target.model_dump(mode="json", exclude_none=True) for target in payload.targets],
+        },
     }
     current_version = (
         await session.execute(
@@ -185,6 +189,7 @@ async def create_disposition(
             "document_id": str(document_id),
             "document_version": document.current_version,
             "directives": payload.directives,
+            "targets": [target.model_dump(mode="json", exclude_none=True) for target in payload.targets],
         },
     )
     await session.commit()

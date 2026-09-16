@@ -4,9 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import id.go.bitungkota.dprd.smartdispo.core.model.DispositionCreate
+import id.go.bitungkota.dprd.smartdispo.core.model.DispositionTarget
+import id.go.bitungkota.dprd.smartdispo.core.model.DispositionTargetOption
 import id.go.bitungkota.dprd.smartdispo.core.model.DocumentSummary
 import id.go.bitungkota.dprd.smartdispo.core.model.IncomingLetterCreate
 import id.go.bitungkota.dprd.smartdispo.core.network.SmartDispoApi
+import id.go.bitungkota.dprd.smartdispo.core.network.ConnectivityMonitor
+import id.go.bitungkota.dprd.smartdispo.core.database.OfflineCache
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -95,6 +99,10 @@ data class LettersUiState(
     val dispositionActorRole: String = "",
     val selectedDirectives: Set<String> = emptySet(),
     val dispositionNote: String = "",
+    val dispositionTargets: List<DispositionTargetOption> = emptyList(),
+    val selectedTargetKeys: Set<String> = emptySet(),
+    val targetQuery: String = "",
+    val loadingTargets: Boolean = false,
     val saving: Boolean = false,
     val error: String? = null,
     val success: String? = null,
@@ -117,7 +125,11 @@ data class LettersUiState(
 }
 
 @HiltViewModel
-class LettersViewModel @Inject constructor(private val api: SmartDispoApi) : ViewModel() {
+class LettersViewModel @Inject constructor(
+    private val api: SmartDispoApi,
+    private val cache: OfflineCache,
+    private val connectivity: ConnectivityMonitor,
+) : ViewModel() {
     private val _state = MutableStateFlow(LettersUiState())
     val state: StateFlow<LettersUiState> = _state.asStateFlow()
 
@@ -129,11 +141,19 @@ class LettersViewModel @Inject constructor(private val api: SmartDispoApi) : Vie
 
     fun refresh() = viewModelScope.launch {
         runCatching { api.documents() }.onSuccess { documents ->
+            cache.write("documents", documents)
             _state.value = _state.value.copy(
                 loading = false,
                 documents = documents,
             )
-        }.onFailure { _state.value = _state.value.copy(loading = false, error = "Daftar surat belum dapat dimuat.") }
+        }.onFailure {
+            val cached = cache.read<List<DocumentSummary>>("documents").orEmpty()
+            _state.value = _state.value.copy(
+                loading = false,
+                documents = cached,
+                error = if (cached.isEmpty()) "Daftar surat belum dapat dimuat." else "Menampilkan data terakhir tersimpan.",
+            )
+        }
     }
 
     fun showCreate() = update { it.copy(mode = LetterMode.CREATE) }
@@ -149,6 +169,32 @@ class LettersViewModel @Inject constructor(private val api: SmartDispoApi) : Vie
             selectedDocument = document,
             dispositionActorRole = actorRole,
             selectedDirectives = emptySet(),
+            selectedTargetKeys = emptySet(),
+            loadingTargets = true,
+        )
+    }.also { loadDispositionTargets() }
+
+    private fun loadDispositionTargets() = viewModelScope.launch {
+        runCatching { api.dispositionTargets() }
+            .onSuccess { options ->
+                _state.value = _state.value.copy(dispositionTargets = options, loadingTargets = false)
+            }
+            .onFailure {
+                _state.value = _state.value.copy(
+                    loadingTargets = false,
+                    error = "Daftar tujuan disposisi belum dapat dimuat.",
+                )
+            }
+    }
+
+    fun toggleTarget(option: DispositionTargetOption) = update { state ->
+        val key = "${option.targetType}:${option.targetId}"
+        state.copy(
+            selectedTargetKeys = if (key in state.selectedTargetKeys) {
+                state.selectedTargetKeys - key
+            } else {
+                state.selectedTargetKeys + key
+            },
         )
     }
 
@@ -185,6 +231,10 @@ class LettersViewModel @Inject constructor(private val api: SmartDispoApi) : Vie
     fun submitLetter() = viewModelScope.launch {
         val form = _state.value
         val documentId = form.draftDocumentId ?: return@launch
+        if (!connectivity.isOnline()) {
+            _state.value = form.copy(error = "Pengiriman ke workflow wajib dilakukan saat online.")
+            return@launch
+        }
         _state.value = form.copy(saving = true, error = null)
         runCatching { api.submitDocument(documentId) }
             .onSuccess { showList() }
@@ -199,9 +249,26 @@ class LettersViewModel @Inject constructor(private val api: SmartDispoApi) : Vie
     fun saveDisposition() = viewModelScope.launch {
         val form = _state.value
         val document = form.selectedDocument ?: return@launch
+        if (!connectivity.isOnline()) {
+            _state.value = form.copy(error = "Disposisi wajib dilakukan saat perangkat online.")
+            return@launch
+        }
         if (form.selectedDirectives.isEmpty()) {
             _state.value = form.copy(error = "Pilih minimal satu isi disposisi.")
             return@launch
+        }
+        if (form.dispositionActorRole == "SEKWAN" && form.selectedTargetKeys.isEmpty()) {
+            _state.value = form.copy(error = "Pilih minimal satu unit, role, atau pengguna tujuan disposisi.")
+            return@launch
+        }
+        val targets = form.dispositionTargets.filter { option ->
+            "${option.targetType}:${option.targetId}" in form.selectedTargetKeys
+        }.map { option ->
+            when (option.targetType) {
+                "UNIT" -> DispositionTarget(unitId = option.targetId)
+                "ROLE" -> DispositionTarget(roleId = option.targetId)
+                else -> DispositionTarget(userId = option.targetId)
+            }
         }
         _state.value = form.copy(saving = true)
         runCatching {
@@ -211,6 +278,7 @@ class LettersViewModel @Inject constructor(private val api: SmartDispoApi) : Vie
                     actorRole = form.dispositionActorRole,
                     directives = form.selectedDirectives.sorted(),
                     note = form.dispositionNote.trim().ifBlank { null },
+                    targets = targets,
                 ),
             )
         }.onSuccess { _state.value = form.copy(saving = false, success = "Disposisi berhasil disimpan.") }
