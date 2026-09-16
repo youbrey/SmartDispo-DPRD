@@ -3,12 +3,20 @@ import os
 import httpx
 import pytest
 
+from app.db.session import engine
 from app.main import app
 
 pytestmark = pytest.mark.skipif(
     os.getenv("SMARTDISPO_RUN_INTEGRATION") != "1",
     reason="Integration test membutuhkan PostgreSQL terisolasi",
 )
+
+
+@pytest.fixture(autouse=True)
+async def dispose_database_pool_after_test():
+    """Keep asyncpg connections bound to the event loop that created them."""
+    yield
+    await engine.dispose()
 
 
 @pytest.mark.asyncio
