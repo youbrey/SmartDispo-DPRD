@@ -13,6 +13,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -24,7 +25,11 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun LoginScreen(state: AuthUiState, onLogin: (String, String) -> Unit) {
+fun LoginScreen(
+    state: AuthUiState,
+    onLogin: (String, String) -> Unit,
+    onConfigureServer: () -> Unit,
+) {
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     Surface {
@@ -72,6 +77,12 @@ fun LoginScreen(state: AuthUiState, onLogin: (String, String) -> Unit) {
                 modifier = Modifier.align(Alignment.CenterHorizontally),
                 style = MaterialTheme.typography.bodySmall,
             )
+            TextButton(
+                onClick = onConfigureServer,
+                modifier = Modifier.align(Alignment.CenterHorizontally),
+            ) {
+                Text("Atur alamat server")
+            }
         }
     }
 }

@@ -56,6 +56,7 @@ import id.go.bitungkota.dprd.smartdispo.feature.meeting.MeetingRequestScreen
 import id.go.bitungkota.dprd.smartdispo.feature.letters.LettersScreen
 import id.go.bitungkota.dprd.smartdispo.feature.profile.ProfileScreen
 import id.go.bitungkota.dprd.smartdispo.feature.notifications.NotificationsScreen
+import id.go.bitungkota.dprd.smartdispo.feature.settings.ServerSettingsDialog
 import id.go.bitungkota.dprd.smartdispo.feature.travel.TravelRequestScreen
 import id.go.bitungkota.dprd.smartdispo.core.model.WorkflowTask
 
@@ -64,16 +65,27 @@ private data class NavItem(val label: String, val icon: ImageVector)
 @Composable
 fun SmartDispoApp(authViewModel: AuthViewModel = hiltViewModel()) {
     val auth by authViewModel.state.collectAsStateWithLifecycle()
+    var configuringServer by remember { mutableStateOf(false) }
     if (!auth.authenticated) {
-        LoginScreen(auth, authViewModel::login)
+        LoginScreen(auth, authViewModel::login, onConfigureServer = { configuringServer = true })
     } else {
-        MainScaffold(authViewModel::logout)
+        MainScaffold(
+            onLogout = authViewModel::logout,
+            onConfigureServer = { configuringServer = true },
+        )
+    }
+    if (configuringServer) {
+        ServerSettingsDialog(onDismiss = { configuringServer = false })
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun MainScaffold(onLogout: () -> Unit, homeViewModel: HomeViewModel = hiltViewModel()) {
+private fun MainScaffold(
+    onLogout: () -> Unit,
+    onConfigureServer: () -> Unit,
+    homeViewModel: HomeViewModel = hiltViewModel(),
+) {
     val state by homeViewModel.state.collectAsStateWithLifecycle()
     var selected by remember { mutableIntStateOf(0) }
     var creatingMeeting by remember { mutableStateOf(false) }
@@ -172,7 +184,7 @@ private fun MainScaffold(onLogout: () -> Unit, homeViewModel: HomeViewModel = hi
                 activeRoleCodes = state.activeRoleCodes,
             )
             3 -> ChatScreen()
-            4 -> ProfileScreen(onLogout)
+            4 -> ProfileScreen(onLogout, onConfigureServer)
             else -> ModulePlaceholder(items[selected].label, Modifier.padding(padding))
         }
     }

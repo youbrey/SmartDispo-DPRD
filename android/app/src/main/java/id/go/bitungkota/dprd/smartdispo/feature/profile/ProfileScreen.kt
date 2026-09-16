@@ -20,7 +20,11 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
-fun ProfileScreen(onLogout: () -> Unit, viewModel: ProfileViewModel = hiltViewModel()) {
+fun ProfileScreen(
+    onLogout: () -> Unit,
+    onConfigureServer: () -> Unit,
+    viewModel: ProfileViewModel = hiltViewModel(),
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     LazyColumn(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
@@ -42,6 +46,11 @@ fun ProfileScreen(onLogout: () -> Unit, viewModel: ProfileViewModel = hiltViewMo
                         OutlinedButton(onClick = { viewModel.revoke(device.id) }) { Text("Cabut perangkat") }
                     }
                 }
+            }
+        }
+        item {
+            OutlinedButton(onClick = onConfigureServer, modifier = Modifier.fillMaxWidth()) {
+                Text("Konfigurasi Server")
             }
         }
         item { Button(onClick = onLogout, modifier = Modifier.fillMaxWidth()) { Text("Keluar dari akun") } }

@@ -1,6 +1,5 @@
 package id.go.bitungkota.dprd.smartdispo.core.network
 
-import id.go.bitungkota.dprd.smartdispo.BuildConfig
 import id.go.bitungkota.dprd.smartdispo.core.model.ChatMessage
 import id.go.bitungkota.dprd.smartdispo.core.model.RealtimeChatEnvelope
 import kotlinx.coroutines.CoroutineScope
@@ -21,6 +20,7 @@ import javax.inject.Singleton
 class ChatRealtimeClient @Inject constructor(
     private val client: OkHttpClient,
     private val tokenStore: TokenStore,
+    private val serverConfigStore: ServerConfigStore,
     private val json: Json,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -38,7 +38,7 @@ class ChatRealtimeClient @Inject constructor(
                 onConnected(false)
                 return@launch
             }
-            val socketUrl = BuildConfig.API_BASE_URL
+            val socketUrl = serverConfigStore.currentBaseUrl()
                 .replaceFirst("https://", "wss://")
                 .replaceFirst("http://", "ws://") +
                 "chat/rooms/$roomId/ws?access_token=$token"

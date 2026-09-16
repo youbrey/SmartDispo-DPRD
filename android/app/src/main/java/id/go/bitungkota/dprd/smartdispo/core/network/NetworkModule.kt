@@ -31,8 +31,10 @@ object NetworkModule {
     fun provideClient(
         tokenStore: TokenStore,
         authenticator: TokenRefreshAuthenticator,
+        serverUrlInterceptor: ServerUrlInterceptor,
         @ApplicationContext context: Context,
     ): OkHttpClient = OkHttpClient.Builder()
+        .addInterceptor(serverUrlInterceptor)
         .addInterceptor { chain ->
             val token = runBlocking { tokenStore.accessToken.first() }
             val request = chain.request().newBuilder().apply {

@@ -1,6 +1,5 @@
 package id.go.bitungkota.dprd.smartdispo.core.network
 
-import id.go.bitungkota.dprd.smartdispo.BuildConfig
 import id.go.bitungkota.dprd.smartdispo.core.model.RefreshRequest
 import id.go.bitungkota.dprd.smartdispo.core.model.TokenPair
 import kotlinx.coroutines.flow.first
@@ -21,6 +20,7 @@ import javax.inject.Singleton
 @Singleton
 class TokenRefreshAuthenticator @Inject constructor(
     private val tokenStore: TokenStore,
+    private val serverConfigStore: ServerConfigStore,
     private val json: Json,
 ) : Authenticator {
     private val refreshClient = OkHttpClient()
@@ -41,7 +41,7 @@ class TokenRefreshAuthenticator @Inject constructor(
             val body = json.encodeToString(RefreshRequest(refresh))
                 .toRequestBody("application/json".toMediaType())
             val refreshRequest = Request.Builder()
-                .url("${BuildConfig.API_BASE_URL}auth/refresh")
+                .url("${serverConfigStore.currentBaseUrl()}auth/refresh")
                 .post(body)
                 .build()
             refreshClient.newCall(refreshRequest).execute().use { refreshResponse ->

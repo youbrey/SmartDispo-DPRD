@@ -13,7 +13,8 @@ Pusat workflow persuratan digital Sekretariat DPRD Kota Bitung. Repository ini b
 
 ## Implementasi saat ini
 
-Versi `0.4.0` menyediakan alur operasional Permintaan Rapat, Permintaan Perjalanan Dinas, Surat Masuk
+Versi Android `0.4.1` menyediakan konfigurasi alamat server saat runtime tanpa build ulang. Backend dan Admin Web
+versi `0.4.0` menyediakan alur operasional Permintaan Rapat, Permintaan Perjalanan Dinas, Surat Masuk
 DPRD/Setwan, lembar disposisi dinamis, workflow administratif, generator DOCX/PDF, panel administrator,
 live chat WebSocket, push notification FCM, cache baca offline Room, RBAC, audit trail, dan integrasi SIPS.
 Lihat `docs/IMPLEMENTATION_STATUS.md` untuk hasil verifikasi dan konfigurasi produksi yang masih diperlukan.
@@ -33,12 +34,10 @@ nilai rahasia dan kata sandi pada `.env` sebelum dipakai di jaringan kantor.
 Panel admin dijalankan dengan `npm run dev` dari folder `admin-web`. Secara default panel mengakses
 `http://localhost:8000/api/v1`; gunakan `VITE_API_BASE_URL` untuk alamat server lain.
 
-Untuk debug APK pada HP fisik, build dengan alamat komputer/server yang dapat dijangkau HP:
-
-```bash
-cd android
-gradle assembleDebug -PSMARTDISPO_DEBUG_API_BASE_URL=http://192.168.1.10:8000/api/v1/
-```
+Pada APK Android `0.4.1` atau lebih baru, pilih **Atur alamat server** pada layar login. Masukkan alamat
+komputer yang dapat dijangkau HP, misalnya `192.168.1.10:8000`, lalu pilih **Uji & Simpan**. Aplikasi
+menambahkan `/api/v1/` secara otomatis sehingga APK tidak perlu dibangun ulang ketika IP server berubah.
+HTTP lokal hanya diizinkan pada debug APK; build release tetap mewajibkan HTTPS.
 
 ## Pengembangan
 
