@@ -1,39 +1,29 @@
-# Status Implementasi
+# Status Implementasi Lokal
 
-## Tersedia pada fondasi versi 0.1.0
+Perubahan berikut masih berada di working tree. Belum ada commit atau push karena APK dan integration suite PostgreSQL belum dapat dijalankan penuh pada lingkungan lokal ini.
 
-- Schema inti PostgreSQL dan Alembic.
-- Login JWT dasar dan bootstrap administrator.
-- RBAC permission server-side.
-- Pembuatan, pembaruan, versioning, dan hash dokumen.
-- Workflow definition, publish, instance, task, action, return, dan concurrency checking.
-- Approval terikat versi dokumen.
-- Tabel disposisi, agenda, notifikasi, perangkat, chat, template, dan integrasi SIPS.
-- Android Compose: login, dashboard, Tugas Saya, navigation shell, DataStore, Hilt, Retrofit.
-- Panel Adminator-inspired responsive dashboard.
-- CI backend, admin web, dan debug APK.
+## Sudah diimplementasikan dan lolos pemeriksaan lokal
 
-## Tahap lanjutan
+- Backend FastAPI: access/refresh token dengan rotation dan logout, RBAC, dokumen berversi dan SHA-256, workflow versioned, concurrency checking, audit append-only, notifikasi, perangkat, attachment tervalidasi, chat REST, dan endpoint SIPS.
+- Form Android Permintaan Rapat, Perjalanan Dinas, Surat Masuk, dan dua jenis lembar disposisi.
+- Draft dapat dipreview sebagai PDF multipage, dikirim ke workflow, dibuka dari tugas, ditampilkan timeline-nya, serta diberi lampiran upload/download.
+- Dokumen rapat/perjalanan berstatus `DRAFT` atau `RETURNED` dapat diperbaiki menjadi versi baru dan dikirim ulang.
+- Disposisi hanya dapat diisi pejabat aktif yang mempunyai task `DISPOSITION`; Ketua dan Sekwan memiliki pilihan berbeda.
+- Tindakan sensitif memerlukan perangkat aktif terdaftar dan identitas perangkat dicatat pada approval.
+- Template DOCX bawaan dan upload Admin memakai versioning; setiap versi dokumen dikunci ke versi template yang digunakan.
+- Panel Admin: pengguna, multi-role, reset password, role/permission, Unit/AKD, pejabat aktif, workflow multi-step, template upload/activation, dashboard, dan audit log.
+- Empat renderer template resmi: Permintaan Rapat, Perjalanan Dinas, Disposisi DPRD, dan Disposisi Setwan.
+- Pemeriksaan terakhir: Ruff bersih, 15 unit test lulus, build produksi Admin Web lulus, dan `git diff --check` bersih.
 
-- Form lengkap perjalanan dinas, rapat, surat masuk, agenda, dan disposisi.
-- Editor workflow visual lengkap dan user/role administration.
-- Renderer DOCX/PDF server-side menggunakan placeholder template resmi.
-- Upload ke Object Storage, antivirus, preview PDF, FCM, WebSocket chat, dan Room cache.
-- Endpoint service account SIPS, webhook, retry outbox, dan idempotency.
-- Signing release APK/AAB, staging, observability, serta security testing.
+## Gerbang yang belum terbukti
 
-## Tersedia pada tahap 0.2.0
+- Tiga integration test PostgreSQL dilewati lokal karena PostgreSQL/Docker tidak tersedia. CI sudah disiapkan untuk menjalankannya.
+- Kompilasi Android lokal berhenti sebelum membaca source karena plugin Android Gradle 8.7.3 tidak dapat diunduh dari repository jaringan lingkungan ini. CI sudah disiapkan untuk `testDebugUnitTest assembleDebug` dan upload APK debug.
+- Karena dua gerbang tersebut belum hijau, proyek belum dianggap final dan belum boleh di-commit/push sesuai instruksi pengguna.
 
-- Master 15 jenis rapat dari template resmi, aktif/nonaktif dan diurutkan dari backend.
-- API pembuatan, pembacaan, dan perubahan Permintaan Rapat dengan versioning dokumen.
-- Validasi zona waktu, maksimal 20 undangan, pencegahan undangan duplikat, dan ownership edit.
-- Permission khusus `meeting_request.create` dan `meeting_request.edit`.
-- Profil API mengirim permission efektif agar menu Android mengikuti hak akses Administrator.
-- Form Android Permintaan Rapat dengan daftar undangan dinamis dan penyimpanan draft.
+## Pekerjaan berikutnya
 
-## Tersedia pada tahap 0.3.0
-
-- Startup container menjalankan migration dan bootstrap/update permission Administrator secara idempotent.
-- CI integration memakai PostgreSQL nyata dan menguji login sampai dokumen rapat berstatus `COMPLETED`.
-- Panel Admin memakai login dan statistik dokumen nyata dari API; tidak lagi menampilkan data contoh.
-- Endpoint API Android dapat dikonfigurasi lewat Gradle property untuk emulator, HP fisik, staging, dan produksi.
+- WebSocket chat dan push FCM end-to-end.
+- Tujuan disposisi Unit/AKD dinamis pada Android dan renderer Setwan.
+- Room offline cache serta pemastian tindakan approval tidak tersedia ketika offline.
+- Menjalankan PostgreSQL integration suite dan build APK pada runner yang memiliki dependency Android, memperbaiki seluruh kegagalan, lalu baru menilai kelayakan commit/push.

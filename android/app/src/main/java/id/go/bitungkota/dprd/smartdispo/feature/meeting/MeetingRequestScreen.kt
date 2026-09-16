@@ -29,6 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,9 +43,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 @Composable
 fun MeetingRequestScreen(
     onBack: () -> Unit,
+    onPreview: (String) -> Unit,
+    editDocumentId: String? = null,
     viewModel: MeetingRequestViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    LaunchedEffect(editDocumentId) { editDocumentId?.let(viewModel::loadForEdit) }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -174,13 +178,30 @@ fun MeetingRequestScreen(
                     )
                 }
                 state.error?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.error) } }
+                if (state.editing) item {
+                    OutlinedTextField(
+                        value = state.changeReason,
+                        onValueChange = { value -> viewModel.update { it.copy(changeReason = value) } },
+                        label = { Text("Alasan perubahan") },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
                 state.savedDocumentId?.let { documentId ->
                     item {
                         Card(Modifier.fillMaxWidth()) {
                             Column(Modifier.padding(16.dp)) {
                                 Text("Draft berhasil disimpan", style = MaterialTheme.typography.titleMedium)
                                 Text("ID dokumen: $documentId", style = MaterialTheme.typography.bodySmall)
-                                TextButton(onClick = onBack) { Text("Kembali ke Dashboard") }
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    OutlinedButton(onClick = { onPreview(documentId) }) { Text("Preview") }
+                                    Button(
+                                        onClick = viewModel::submit,
+                                        enabled = !state.submitting && !state.submitted,
+                                    ) {
+                                        Text(if (state.submitted) "Terkirim" else if (state.submitting) "Mengirim…" else "Kirim")
+                                    }
+                                }
+                                if (state.submitted) TextButton(onClick = onBack) { Text("Kembali ke Dashboard") }
                             }
                         }
                     }
@@ -188,10 +209,10 @@ fun MeetingRequestScreen(
                 item {
                     Button(
                         onClick = viewModel::saveDraft,
-                        enabled = !state.saving && state.savedDocumentId == null,
+                        enabled = !state.saving && (state.editing || state.savedDocumentId == null),
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        if (state.saving) CircularProgressIndicator(Modifier.padding(2.dp)) else Text("Simpan Draft")
+                        if (state.saving) CircularProgressIndicator(Modifier.padding(2.dp)) else Text(if (state.editing) "Simpan Perbaikan" else "Simpan Draft")
                     }
                 }
             }

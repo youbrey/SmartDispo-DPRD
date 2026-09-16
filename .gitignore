@@ -1,5 +1,6 @@
 .env
 .venv/
+.venv-test/
 __pycache__/
 .pytest_cache/
 .ruff_cache/
@@ -12,5 +13,7 @@ node_modules/
 dist/
 *.tsbuildinfo
 coverage/
+backend/generated/
+backend/storage/
 *.jks
 *.keystore

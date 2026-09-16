@@ -26,9 +26,7 @@ def test_content_uses_only_selected_meeting_type_and_dynamic_invitees() -> None:
     content = meeting_content(payload(), "Rapat Dengar Pendapat")
     assert content["meeting_type_name"] == "Rapat Dengar Pendapat"
     assert content["meeting_type_code"] == "HEARING"
-    assert content["invitees"] == [
-        {"name": "Dinas Perhubungan", "institution": "Pemerintah Kota Bitung"}
-    ]
+    assert content["invitees"] == [{"name": "Dinas Perhubungan", "institution": "Pemerintah Kota Bitung"}]
     assert "Rapat Paripurna" not in str(content)
 
 

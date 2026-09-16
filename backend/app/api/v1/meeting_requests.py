@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 
-from app.core.dependencies import CurrentUser, SessionDep, has_permission, require_permission
+from app.core.dependencies import CurrentUser, SessionDep, require_permission
 from app.models.entities import Document, MeetingRequest, MeetingType
 from app.schemas.common import (
     MeetingRequestCreate,
@@ -11,6 +11,7 @@ from app.schemas.common import (
     MeetingRequestView,
     MeetingTypeView,
 )
+from app.services.access import ensure_document_access
 from app.services.meeting_requests import (
     create_meeting_request,
     creator_actions,
@@ -56,8 +57,7 @@ async def _entities(session: SessionDep, document_id: UUID) -> tuple[Document, M
 @router.get("/meeting-requests/{document_id}", response_model=MeetingRequestView)
 async def get(document_id: UUID, session: SessionDep, user: CurrentUser) -> MeetingRequestView:
     document, request, meeting_type = await _entities(session, document_id)
-    if document.created_by != user.id and not await has_permission(session, user.id, "document.read"):
-        raise HTTPException(status_code=403, detail="Izin tidak mencukupi")
+    await ensure_document_access(session, document, user.id)
     actions = creator_actions(document) if document.created_by == user.id else []
     return await meeting_request_view(session, document, request, meeting_type, actions)
 

@@ -114,9 +114,7 @@ async def update_meeting_request(
     request.scheduled_at = payload.scheduled_at
     request.place = payload.place
     request.attire = payload.attire
-    await session.execute(
-        delete(MeetingRequestInvitee).where(MeetingRequestInvitee.meeting_request_id == request.id)
-    )
+    await session.execute(delete(MeetingRequestInvitee).where(MeetingRequestInvitee.meeting_request_id == request.id))
     session.add_all(
         [
             MeetingRequestInvitee(

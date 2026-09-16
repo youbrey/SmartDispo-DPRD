@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import decode_token
 from app.db.session import get_session
-from app.models.entities import Permission, RolePermission, User, UserRole
+from app.models.entities import Permission, RolePermission, User, UserDevice, UserRole
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
@@ -29,7 +29,7 @@ async def get_current_user(session: SessionDep, token: Annotated[str, Depends(oa
     except (jwt.InvalidTokenError, KeyError, ValueError) as exc:
         raise credentials_error from exc
     user = await session.get(User, user_id)
-    if not user or not user.active:
+    if not user or not user.active or payload.get("ver") != user.token_version:
         raise credentials_error
     return user
 
@@ -58,3 +58,24 @@ def require_permission(permission_code: str):
         return user
 
     return checker
+
+
+async def ensure_active_device(
+    session: AsyncSession,
+    user_id: UUID,
+    device_fingerprint: str | None,
+) -> UserDevice:
+    if not device_fingerprint:
+        raise HTTPException(status_code=403, detail="Perangkat aktif wajib digunakan untuk tindakan ini")
+    device = (
+        await session.execute(
+            select(UserDevice).where(
+                UserDevice.user_id == user_id,
+                UserDevice.device_fingerprint == device_fingerprint,
+                UserDevice.revoked_at.is_(None),
+            )
+        )
+    ).scalar_one_or_none()
+    if not device:
+        raise HTTPException(status_code=403, detail="Perangkat belum terdaftar atau telah dicabut")
+    return device

@@ -6,9 +6,10 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.entities import Document, DocumentStatus, DocumentType, DocumentVersion
+from app.models.entities import ChatMember, ChatRoom, Document, DocumentStatus, DocumentType, DocumentVersion
 from app.schemas.common import DocumentCreate, DocumentUpdate
 from app.services.audit import record_audit
+from app.services.templates import active_template_version
 
 
 def canonical_hash(content: dict) -> str:
@@ -29,6 +30,11 @@ async def add_document(session: AsyncSession, payload: DocumentCreate, user_id: 
     )
     session.add(document)
     await session.flush()
+    room = ChatRoom(name=f"Dokumen: {payload.title[:220]}", document_id=document.id)
+    session.add(room)
+    await session.flush()
+    session.add(ChatMember(room_id=room.id, user_id=user_id))
+    template_version = await active_template_version(session, document_type)
     session.add(
         DocumentVersion(
             document_id=document.id,
@@ -37,6 +43,7 @@ async def add_document(session: AsyncSession, payload: DocumentCreate, user_id: 
             sha256_hash=canonical_hash(payload.content),
             created_by=user_id,
             change_reason="Versi awal",
+            template_version_id=template_version.id if template_version else None,
         )
     )
     record_audit(
@@ -75,6 +82,14 @@ async def update_document(
     if document.status not in {DocumentStatus.DRAFT, DocumentStatus.RETURNED}:
         raise HTTPException(status_code=409, detail="Dokumen pada status ini tidak dapat diedit")
     before = {"version": document.current_version, "title": document.title}
+    previous_version = (
+        await session.execute(
+            select(DocumentVersion).where(
+                DocumentVersion.document_id == document.id,
+                DocumentVersion.version_number == document.current_version,
+            )
+        )
+    ).scalar_one()
     document.current_version += 1
     document.lock_version += 1
     if payload.title:
@@ -87,6 +102,7 @@ async def update_document(
             sha256_hash=canonical_hash(payload.content),
             created_by=user_id,
             change_reason=payload.change_reason,
+            template_version_id=previous_version.template_version_id,
         )
     )
     record_audit(

@@ -1,11 +1,14 @@
 package id.go.bitungkota.dprd.smartdispo.core.network
 
+import android.content.Context
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import dagger.hilt.android.qualifiers.ApplicationContext
 import id.go.bitungkota.dprd.smartdispo.BuildConfig
+import id.go.bitungkota.dprd.smartdispo.core.security.deviceFingerprint
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.ExperimentalSerializationApi
@@ -25,14 +28,20 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideClient(tokenStore: TokenStore): OkHttpClient = OkHttpClient.Builder()
+    fun provideClient(
+        tokenStore: TokenStore,
+        authenticator: TokenRefreshAuthenticator,
+        @ApplicationContext context: Context,
+    ): OkHttpClient = OkHttpClient.Builder()
         .addInterceptor { chain ->
             val token = runBlocking { tokenStore.accessToken.first() }
             val request = chain.request().newBuilder().apply {
                 if (!token.isNullOrBlank()) header("Authorization", "Bearer $token")
+                header("X-Device-ID", deviceFingerprint(context))
             }.build()
             chain.proceed(request)
         }
+        .authenticator(authenticator)
         .apply {
             if (BuildConfig.DEBUG) addInterceptor(
                 HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC }

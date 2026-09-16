@@ -20,7 +20,7 @@ def verify_password(password: str, hashed: str) -> bool:
     return password_hash.verify(password, hashed)
 
 
-def create_token(subject: str, token_type: str, expires_delta: timedelta) -> str:
+def create_token(subject: str, token_type: str, expires_delta: timedelta, token_version: int = 0) -> str:
     now = datetime.now(UTC)
     payload: dict[str, Any] = {
         "sub": subject,
@@ -28,6 +28,7 @@ def create_token(subject: str, token_type: str, expires_delta: timedelta) -> str
         "iat": now,
         "exp": now + expires_delta,
         "jti": str(uuid4()),
+        "ver": token_version,
     }
     return jwt.encode(payload, get_settings().jwt_secret, algorithm=ALGORITHM)
 

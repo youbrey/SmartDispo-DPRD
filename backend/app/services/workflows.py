@@ -7,10 +7,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.entities import (
     Approval,
+    ChatMember,
+    ChatRoom,
+    Disposition,
+    DispositionSheet,
     Document,
     DocumentStatus,
     DocumentVersion,
+    Notification,
+    Role,
     TaskStatus,
+    User,
     UserRole,
     WorkflowDefinition,
     WorkflowInstance,
@@ -23,7 +30,7 @@ from app.services.audit import record_audit
 APPROVAL_ACTIONS = {"SIGN", "VERIFY", "COORDINATE", "APPROVE", "DISPOSITION"}
 
 
-def create_step_tasks(session: AsyncSession, instance_id: UUID, step: WorkflowStep) -> None:
+async def create_step_tasks(session: AsyncSession, instance_id: UUID, step: WorkflowStep) -> None:
     rule = step.assignment_rule
     user_ids = [*rule.get("user_ids", [])]
     role_ids = [*rule.get("role_ids", [])]
@@ -31,15 +38,51 @@ def create_step_tasks(session: AsyncSession, instance_id: UUID, step: WorkflowSt
         user_ids.append(rule["user_id"])
     if rule.get("role_id"):
         role_ids.append(rule["role_id"])
+    if rule.get("role_code"):
+        role_id = (
+            await session.execute(select(Role.id).where(Role.code == str(rule["role_code"]).upper()))
+        ).scalar_one_or_none()
+        if not role_id:
+            raise HTTPException(status_code=409, detail=f"Role {rule['role_code']} pada step belum tersedia")
+        role_ids.append(role_id)
+    unit_id = rule.get("unit_id")
+    if unit_id and role_ids:
+        scoped_users = list(
+            (
+                await session.execute(
+                    select(User.id)
+                    .join(UserRole, UserRole.user_id == User.id)
+                    .where(
+                        UserRole.role_id.in_([UUID(str(value)) for value in role_ids]),
+                        User.unit_id == UUID(str(unit_id)),
+                        User.active.is_(True),
+                    )
+                )
+            ).scalars()
+        )
+        user_ids.extend(scoped_users)
+        role_ids = []
+    user_ids = list(dict.fromkeys(UUID(str(value)) for value in user_ids))
+    role_ids = list(dict.fromkeys(UUID(str(value)) for value in role_ids))
     if not user_ids and not role_ids:
         raise HTTPException(status_code=409, detail=f"Assignment step {step.step_key} belum dikonfigurasi")
+    recipients = set(user_ids)
     for assigned_user_id in user_ids:
         session.add(
             WorkflowTask(
                 instance_id=instance_id,
                 step_key=step.step_key,
-                assignee_user_id=UUID(str(assigned_user_id)),
+                assignee_user_id=assigned_user_id,
                 available_actions=step.allowed_actions,
+            )
+        )
+        session.add(
+            Notification(
+                user_id=assigned_user_id,
+                event_type="TASK_ASSIGNED",
+                title="Tugas baru",
+                body=f"Tugas {step.name} menunggu tindakan Anda.",
+                payload={"instance_id": str(instance_id), "step_key": step.step_key},
             )
         )
     for assigned_role_id in role_ids:
@@ -47,10 +90,47 @@ def create_step_tasks(session: AsyncSession, instance_id: UUID, step: WorkflowSt
             WorkflowTask(
                 instance_id=instance_id,
                 step_key=step.step_key,
-                assignee_role_id=UUID(str(assigned_role_id)),
+                assignee_role_id=assigned_role_id,
                 available_actions=step.allowed_actions,
             )
         )
+        role_users = list(
+            (
+                await session.execute(
+                    select(UserRole.user_id)
+                    .join(User, User.id == UserRole.user_id)
+                    .where(UserRole.role_id == assigned_role_id, User.active.is_(True))
+                )
+            ).scalars()
+        )
+        for role_user_id in role_users:
+            recipients.add(role_user_id)
+            session.add(
+                Notification(
+                    user_id=role_user_id,
+                    event_type="TASK_ASSIGNED",
+                    title="Tugas baru untuk role Anda",
+                    body=f"Tugas {step.name} menunggu tindakan.",
+                    payload={"instance_id": str(instance_id), "step_key": step.step_key},
+                )
+            )
+    instance = await session.get(WorkflowInstance, instance_id)
+    if instance and recipients:
+        room = (
+            await session.execute(select(ChatRoom).where(ChatRoom.document_id == instance.document_id))
+        ).scalar_one_or_none()
+        if room:
+            existing = set(
+                (
+                    await session.execute(
+                        select(ChatMember.user_id).where(
+                            ChatMember.room_id == room.id,
+                            ChatMember.user_id.in_(recipients),
+                        )
+                    )
+                ).scalars()
+            )
+            session.add_all(ChatMember(room_id=room.id, user_id=recipient) for recipient in recipients - existing)
 
 
 async def submit_document(session: AsyncSession, document_id: UUID, user_id: UUID) -> Document:
@@ -77,7 +157,7 @@ async def submit_document(session: AsyncSession, document_id: UUID, user_id: UUI
                 )
             )
         ).scalar_one()
-        create_step_tasks(session, instance.id, target_step)
+        await create_step_tasks(session, instance.id, target_step)
         document.status = DocumentStatus.IN_PROGRESS
         document.lock_version += 1
         instance.lock_version += 1
@@ -118,7 +198,7 @@ async def submit_document(session: AsyncSession, document_id: UUID, user_id: UUI
     )
     session.add(instance)
     await session.flush()
-    create_step_tasks(session, instance.id, first_step)
+    await create_step_tasks(session, instance.id, first_step)
     document.status = DocumentStatus.IN_PROGRESS
     document.current_step_key = first_step.step_key
     document.lock_version += 1
@@ -181,11 +261,25 @@ async def execute_task_action(
             )
         )
     ).scalar_one()
-    if action == "RETURN" and step.note_required_on_return and not note:
-        raise HTTPException(status_code=422, detail="Alasan pengembalian wajib diisi")
+    if (action == "REJECT" or (action == "RETURN" and step.note_required_on_return)) and not note:
+        raise HTTPException(status_code=422, detail="Alasan pengembalian atau penolakan wajib diisi")
     document = (
         await session.execute(select(Document).where(Document.id == instance.document_id).with_for_update())
     ).scalar_one()
+    if action == "DISPOSITION":
+        saved_disposition = (
+            await session.execute(
+                select(Disposition.id)
+                .join(DispositionSheet, DispositionSheet.id == Disposition.sheet_id)
+                .where(
+                    DispositionSheet.document_id == document.id,
+                    Disposition.created_by == user_id,
+                )
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        if not saved_disposition:
+            raise HTTPException(status_code=409, detail="Isi lembar disposisi sebelum menyelesaikan task")
     version = (
         await session.execute(
             select(DocumentVersion).where(
@@ -217,6 +311,37 @@ async def execute_task_action(
     if action == "RETURN":
         document.status = DocumentStatus.RETURNED
         document.current_step_key = step.return_step_key
+        session.add(
+            Notification(
+                user_id=document.created_by,
+                event_type="DOCUMENT_RETURNED",
+                title="Dokumen dikembalikan",
+                body=f"{document.title} dikembalikan untuk diperbaiki.",
+                payload={"document_id": str(document.id), "note": note},
+            )
+        )
+    elif action == "REJECT":
+        document.status = DocumentStatus.REJECTED
+        document.current_step_key = None
+        instance.completed_at = now
+        await session.execute(
+            WorkflowTask.__table__.update()
+            .where(
+                WorkflowTask.instance_id == instance.id,
+                WorkflowTask.id != task.id,
+                WorkflowTask.status.in_([TaskStatus.PENDING, TaskStatus.OPENED]),
+            )
+            .values(status=TaskStatus.CANCELLED)
+        )
+        session.add(
+            Notification(
+                user_id=document.created_by,
+                event_type="DOCUMENT_RETURNED",
+                title="Dokumen ditolak",
+                body=f"{document.title} ditolak.",
+                payload={"document_id": str(document.id), "note": note},
+            )
+        )
     else:
         pending_sibling = (
             (
@@ -264,11 +389,20 @@ async def execute_task_action(
         if next_step:
             instance.current_step_key = next_step.step_key
             document.current_step_key = next_step.step_key
-            create_step_tasks(session, instance.id, next_step)
+            await create_step_tasks(session, instance.id, next_step)
         else:
             document.status = DocumentStatus.COMPLETED
             document.current_step_key = None
             instance.completed_at = now
+            session.add(
+                Notification(
+                    user_id=document.created_by,
+                    event_type="DOCUMENT_UPDATED",
+                    title="Dokumen selesai",
+                    body=f"{document.title} telah menyelesaikan seluruh workflow.",
+                    payload={"document_id": str(document.id)},
+                )
+            )
     record_audit(
         session,
         actor_user_id=user_id,

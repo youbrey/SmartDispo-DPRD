@@ -24,6 +24,10 @@ class TokenStore @Inject constructor(
         preferences[accessKey]?.let { encrypted -> runCatching { cipher.decrypt(encrypted) }.getOrNull() }
     }
 
+    val refreshToken: Flow<String?> = context.authDataStore.data.map { preferences ->
+        preferences[refreshKey]?.let { encrypted -> runCatching { cipher.decrypt(encrypted) }.getOrNull() }
+    }
+
     suspend fun save(access: String, refresh: String) {
         context.authDataStore.edit {
             it[accessKey] = cipher.encrypt(access)

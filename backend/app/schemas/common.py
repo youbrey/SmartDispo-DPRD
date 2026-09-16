@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime, time
 from typing import Any
 from uuid import UUID
 
@@ -118,4 +118,140 @@ class MeetingRequestView(MeetingRequestPayload):
     current_version: int
     lock_version: int
     available_actions: list[str] = Field(default_factory=list)
+    created_at: datetime
+
+
+class TravelMemberInput(ApiModel):
+    name: str = Field(min_length=2, max_length=255)
+    position: str | None = Field(default=None, max_length=255)
+    member_group: str = Field(pattern="^(EXECUTOR|ACCOMPANYING)$")
+
+
+class TravelRequestPayload(ApiModel):
+    sender_name: str = Field(min_length=2, max_length=255)
+    sender_position: str = Field(min_length=2, max_length=255)
+    organizational_unit: str = Field(min_length=2, max_length=255)
+    activity_type: str = Field(pattern="^(CONSULTATION|WORK_VISIT)$")
+    destinations: list[str] = Field(min_length=1, max_length=4)
+    purpose: str = Field(min_length=3, max_length=8000)
+    material: str = Field(min_length=3, max_length=8000)
+    general_problem: str = Field(min_length=3, max_length=8000)
+    current_condition: str = Field(min_length=3, max_length=8000)
+    efforts: str = Field(min_length=3, max_length=8000)
+    start_date: date
+    end_date: date
+    activity_time: time | None = None
+    place: str = Field(min_length=2, max_length=500)
+    members: list[TravelMemberInput] = Field(min_length=1, max_length=26)
+    notes: str | None = Field(default=None, max_length=4000)
+    signer_role_code: str | None = Field(default=None, max_length=80)
+    follow_up_directives: list[str] = Field(default_factory=list, max_length=8)
+
+    @field_validator("destinations")
+    @classmethod
+    def normalize_destinations(cls, values: list[str]) -> list[str]:
+        normalized = [value.strip() for value in values if value.strip()]
+        if not normalized:
+            raise ValueError("Minimal satu tujuan wajib diisi")
+        if len({value.casefold() for value in normalized}) != len(normalized):
+            raise ValueError("Daftar tujuan tidak boleh duplikat")
+        return normalized
+
+    @model_validator(mode="after")
+    def validate_travel_request(self):
+        if self.end_date < self.start_date:
+            raise ValueError("Tanggal selesai tidak boleh sebelum tanggal mulai")
+        identities = {(member.name.strip().casefold(), member.member_group) for member in self.members}
+        if len(identities) != len(self.members):
+            raise ValueError("Daftar pelaksana atau pendamping tidak boleh duplikat")
+        if not any(member.member_group == "EXECUTOR" for member in self.members):
+            raise ValueError("Minimal satu pelaksana wajib diisi")
+        return self
+
+
+class TravelRequestCreate(TravelRequestPayload):
+    pass
+
+
+class TravelRequestUpdate(TravelRequestPayload):
+    expected_lock_version: int = Field(ge=0)
+    change_reason: str = Field(min_length=3, max_length=1000)
+
+
+class TravelRequestView(TravelRequestPayload):
+    id: UUID
+    document_id: UUID
+    document_status: str
+    title: str
+    duration_days: int
+    current_version: int
+    lock_version: int
+    available_actions: list[str] = Field(default_factory=list)
+    created_at: datetime
+
+
+class IncomingLetterCreate(ApiModel):
+    route_type: str = Field(pattern="^(DPRD|SETWAN)$")
+    sender: str = Field(min_length=2, max_length=500)
+    letter_number: str = Field(min_length=1, max_length=160)
+    letter_date: date
+    received_date: date
+    agenda_number: str = Field(min_length=1, max_length=120)
+    agenda_date: date
+    subject: str = Field(min_length=3, max_length=8000)
+    priority: str = Field(pattern="^(BIASA|PENTING|SEGERA|RAHASIA)$")
+    notes: str | None = Field(default=None, max_length=4000)
+
+    @model_validator(mode="after")
+    def validate_dates(self):
+        if self.received_date < self.letter_date:
+            raise ValueError("Tanggal terima tidak boleh sebelum tanggal surat")
+        return self
+
+
+class IncomingLetterView(IncomingLetterCreate):
+    document_id: UUID
+    document_status: str
+    title: str
+    current_version: int
+    lock_version: int
+    available_actions: list[str] = Field(default_factory=list)
+    created_at: datetime
+
+
+class DispositionTargetInput(ApiModel):
+    unit_id: UUID | None = None
+    role_id: UUID | None = None
+    user_id: UUID | None = None
+
+    @model_validator(mode="after")
+    def exactly_one_target(self):
+        if sum(value is not None for value in (self.unit_id, self.role_id, self.user_id)) != 1:
+            raise ValueError("Tujuan disposisi harus tepat satu unit, role, atau pengguna")
+        return self
+
+
+class DispositionCreate(ApiModel):
+    actor_role: str = Field(min_length=2, max_length=80)
+    directives: list[str] = Field(min_length=1, max_length=30)
+    note: str | None = Field(default=None, max_length=8000)
+    targets: list[DispositionTargetInput] = Field(default_factory=list, max_length=30)
+
+    @field_validator("directives")
+    @classmethod
+    def unique_directives(cls, values: list[str]) -> list[str]:
+        normalized = [value.strip().upper() for value in values if value.strip()]
+        if len(normalized) != len(set(normalized)):
+            raise ValueError("Pilihan disposisi tidak boleh duplikat")
+        return normalized
+
+
+class DispositionView(ApiModel):
+    id: UUID
+    document_id: UUID
+    sheet_type: str
+    actor_role: str
+    directives: list[str]
+    note: str | None
+    targets: list[DispositionTargetInput]
     created_at: datetime

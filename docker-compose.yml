@@ -20,15 +20,29 @@ services:
   api:
     build: ./backend
     env_file: .env
+    environment:
+      SMARTDISPO_TEMPLATE_DIR: /app/templates
+      SMARTDISPO_TEMPLATE_UPLOAD_DIR: /app/storage/templates
+      SMARTDISPO_GENERATED_DIR: /app/generated
+      SMARTDISPO_ATTACHMENT_DIR: /app/storage/attachments
     ports:
       - "8000:8000"
+    volumes:
+      - ./templates:/app/templates:ro
+      - generated_documents:/app/generated
+      - attachment_storage:/app/storage/attachments
+      - template_storage:/app/storage/templates
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_started
-    volumes:
-      - ./templates:/app/templates:ro
+  admin-web:
+    build: ./admin-web
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
 
   admin-web:
     build: ./admin-web
@@ -39,3 +53,6 @@ services:
 
 volumes:
   postgres_data:
+  generated_documents:
+  attachment_storage:
+  template_storage:
