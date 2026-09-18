@@ -1,7 +1,8 @@
 from functools import lru_cache
+from typing import Annotated
 
 from pydantic import Field, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -12,7 +13,11 @@ class Settings(BaseSettings):
     jwt_secret: str = Field(min_length=32)
     access_token_minutes: int = 15
     refresh_token_days: int = 7
-    cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])
+    # NoDecode keeps comma-separated deployment values from being treated as JSON
+    # before the validator below can normalize them.
+    cors_origins: Annotated[list[str], NoDecode] = Field(
+        default_factory=lambda: ["http://localhost:5173"]
+    )
     template_dir: str = "../templates"
     template_upload_dir: str = "./storage/templates"
     generated_dir: str = "./generated"
