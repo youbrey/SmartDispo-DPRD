@@ -16,6 +16,7 @@ dist/
 coverage/
 backend/generated/
 backend/storage/
+backups/
 *.jks
 android/app/google-services.json
 *.keystore

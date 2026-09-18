@@ -1,12 +1,13 @@
 services:
   postgres:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: smartdispo
-      POSTGRES_USER: smartdispo
-      POSTGRES_PASSWORD: smartdispo
+      POSTGRES_DB: ${SMARTDISPO_POSTGRES_DB:-smartdispo}
+      POSTGRES_USER: ${SMARTDISPO_POSTGRES_USER:-smartdispo}
+      POSTGRES_PASSWORD: ${SMARTDISPO_POSTGRES_PASSWORD:-smartdispo}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U smartdispo"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -15,10 +16,19 @@ services:
 
   redis:
     image: redis:7-alpine
+    restart: unless-stopped
     command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - redis_data:/data
 
   api:
     build: ./backend
+    restart: unless-stopped
     env_file: .env
     environment:
       SMARTDISPO_TEMPLATE_DIR: /app/templates
@@ -26,7 +36,7 @@ services:
       SMARTDISPO_GENERATED_DIR: /app/generated
       SMARTDISPO_ATTACHMENT_DIR: /app/storage/attachments
     ports:
-      - "8000:8000"
+      - "${SMARTDISPO_BIND_ADDRESS:-0.0.0.0}:${SMARTDISPO_API_PORT:-8000}:8000"
     volumes:
       - ./templates:/app/templates:ro
       - generated_documents:/app/generated
@@ -36,16 +46,30 @@ services:
       postgres:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
   admin-web:
     build: ./admin-web
+    restart: unless-stopped
     ports:
-      - "8080:80"
+      - "${SMARTDISPO_BIND_ADDRESS:-0.0.0.0}:${SMARTDISPO_ADMIN_PORT:-8080}:80"
     depends_on:
-      - api
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
 
 volumes:
   postgres_data:
+  redis_data:
   generated_documents:
   attachment_storage:
   template_storage:

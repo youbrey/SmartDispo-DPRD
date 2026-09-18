@@ -39,6 +39,11 @@ komputer yang dapat dijangkau HP, misalnya `192.168.1.10:8000`, lalu pilih **Uji
 menambahkan `/api/v1/` secara otomatis sehingga APK tidak perlu dibangun ulang ketika IP server berubah.
 HTTP lokal hanya diizinkan pada debug APK; build release tetap mewajibkan HTTPS.
 
+Panduan lengkap untuk menjadikan komputer Windows sebagai server lokal, membuat konfigurasi aman,
+membuka firewall LAN, menjalankan container otomatis, dan menghubungkan APK tersedia di
+[`docs/LOCAL_SERVER_WINDOWS.md`](docs/LOCAL_SERVER_WINDOWS.md). Skrip `scripts/setup-local-server.ps1`
+menyiapkan konfigurasi dan menjalankan seluruh layanan tanpa memerlukan XAMPP.
+
 ## Pengembangan
 
 ```bash
